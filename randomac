@@ -1,0 +1,88 @@
+#!/bin/sh
+#
+#   Emile Mercier <first name>@guntari.com
+#   03/08/2015
+#
+#   SYNOPSIS
+#        randomac [manufacturer]
+#
+#   DESCRIPTION
+#        randomac prints a random mac address. By default the manufacturer
+#        will be randomly picked, but can be specified via
+#        case insensitive argument.
+#
+#   EXAMPLES
+#            $ randomac
+#            00:13:74:18:17:2C
+#
+#            $ randomac apple
+#            D0:03:4B:18:17:2C
+#
+#            $ randomac Google
+#            00:1A:11:FB:38:9E
+#
+#            $ randomac GXXgle
+#            Error, the manufacturer GXXgle is not defined
+
+# Define legal arguments, what exists here must be in the variable manufCONCAT
+apple="04DB56 0C3E9F 1000E0 1499E2 18AF61 24A2E1 28E14C 3010E4 54E43A 54EAA8 5CF938 606944 7014A6 789F70 90B931 94E96A 985AEB 9C35EB A01828 A43135 A8667F A886DD ACFDEC C81EE7 D0034B D0E140 DC3714 DC86D8 E498D6 E4C63D F0C1F1 F82793"
+google="001A11 3C5AB4 94EB2C A47733 F4F5E8"
+atheros="00037F 001374 00B052"
+
+# whatever you define above, add it to the following space delimited list
+manufCONCAT="apple google atheros"
+
+# if argument exists, check if it matches a manufacturer we defined, or exit 1
+#   if there is no arg, return random manufacturer from the set of those defined
+#
+# manufBOOL remains 0 until the supplied argument is matched
+manufBOOL=0
+if [ "$1" != "" ];then
+    arg=`echo $1 | awk -v i=$1 '{ print tolower(i) }'`
+    # if match our defined manufacturers, set Manuf
+    while read line;do
+        if [ "$arg" == "$line" ];then
+            #indirect variable expansion
+            eval Manuf="\$$arg"
+            manufBOOL=1
+            break
+        fi
+    done <<-EOF
+    `echo $manufCONCAT | tr "[:space:]*" "\n"`
+EOF
+
+    # if manufBOOL is 0, we didn't match the supplied argument, so exit
+    if [ $manufBOOL -eq 0 ];then
+        echo Error, the manufacturer $1 is not defined
+        exit 1
+    fi
+else
+    # program was called with no argument, concatenate all manufacturers into Manuf
+    Manuf=
+    while read line;do
+        # When the loop is done, all mac prefixes are in variable Manuf
+        #use indirect variable expansion
+        eval var="\$$line"
+        # concatenate var into Manuf
+        Manuf="$Manuf $var"
+    done <<-EOG
+    `echo $manufCONCAT | tr "[:space:]*" "\n"`
+EOG
+
+fi
+
+
+NbrOfMacs=`echo $Manuf | awk '{print NF}'`
+NumMacs=`expr 1 + $(($RANDOM%$NbrOfMacs))`
+MacPrefix=`echo $Manuf | awk -v shellRandNo=$NumMacs '{print $shellRandNo}'`
+MacSuffix=
+count=6
+while [ $count -gt 0 ];do
+    MacSuffix=$MacSuffix`echo "obase=16;$RANDOM%16" | bc`
+    count=$(expr $count - 1)
+done
+
+randomMac=`echo $MacPrefix$MacSuffix`
+
+echo `echo $randomMac | fold -w2 | paste -sd: -`
+
