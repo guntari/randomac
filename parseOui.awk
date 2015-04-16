@@ -7,6 +7,8 @@
 ##   PURPOSE: Parse oui.txt into a associative array
 ##            with the key being the entire manufacturer string.
 ##            for use during compiling randomac.c
+##            http://standards-oui.ieee.org/oui.txt
+##            http://standards.ieee.org/regauth/oui/oui.txt
 ##
 ##     NOTE: after running this on oui.txt, it becomes obvious that the data is
 ##           not normalized.
@@ -42,19 +44,43 @@
             mfgString = sprintf("%s %s", mfgString, sprintf("%s",$i) );
     }
 
+    # label null manufacturer string "Private"
+    if ( mfgString == "" )
+        foo="Private"
+    else
+        foo=mfgString;
+
+    # strip out some punctuation
+    gsub(/[^a-zA-Z0-9_ \/\\()\t-&]/, "", foo)
+    # zap up trailing spaces
+    gsub(/[[:space:]]*$/, "", foo)
+    # general tidyup
+    gsub(/[[:space:]][[:space:]]*/, " ", foo)
+    gsub(/ *[][lL][Tt][Dd][aA]?$/, ", ltd", foo)
+    gsub(/ *[][iI][nN][cC]$/, ", inc", foo)
+    gsub(/[cC][oO][lL][tT][dD]/, "co, ltd", foo)
+    gsub(/ [lL][iI][mM][iI][tT][eE][dD]$/, ", ltd", foo)
+
     # Store the manufacturer string "mfgString" in a associative array "Manuf"
     # as the "primary key"
     # each mac prefix associated with the literal manufacturer string
     # is then stored, space delimited, in it.
     # The if condition is so that first mac prefix entry isn't preceeded by a space
-    if ( Manuf[ tolower(mfgString) ] == "" )
-        Manuf[ tolower(mfgString) ] = sprintf("%s", MacPrefix[count]);
+    if ( Manuf[ tolower( foo ) ] == "" )
+    {
+        Manuf[ tolower( foo ) ] = sprintf("%s", MacPrefix[count]);
+        # store the unmolested manufacturer string
+        ManufCAPS[ tolower( foo ) ] = sprintf("%s", foo);
+    }
     else
-        Manuf[ tolower(mfgString) ] = sprintf("%s %s",Manuf[ tolower(mfgString) ],MacPrefix[count]);
+    {
+        Manuf[ tolower( foo ) ] = sprintf("%s %s",Manuf[ tolower( foo ) ],MacPrefix[count]);
+    }
 }
 
 END{
+    printf("# This output was generated from the file http://standards.ieee.org/regauth/oui/oui.txt\n")
    for (i in Manuf)
-       printf( "%s\t%s\n", i, Manuf[i] );
-}
+       printf( "%s\t%s\n", ManufCAPS[i], Manuf[i] );
+   }
 
